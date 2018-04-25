@@ -1,0 +1,312 @@
+---
+title: "R-Ladies: Introduction to R - Part Two"
+purpose: learn about packages, data organization/cleaning, and basic visualization
+data: students.csv
+authors: Mary Angelica Painter & Christy Garcia 
+contact: mapxvc@mail.umsl.edu, christina.garcia@slu.edu
+last updated: 4/24/18
+output: html_notebook
+---
+
+## RStudio Basics
+
+[RStudio](http://rstudio.com) is a user interface for R that makes working with the language *much* easier. The first two features below that we'll discuss briefly are all aspects of RStudio - they are not part of the basic R releases.
+
+### R Notebooks
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). The preview shows you a rendered HTML copy of the contents of the editor -- it will only show any output that you have opened when it is saved. 
+
+### R Projects
+
+R projects create a home for your data analysis. When you set a R project up, it will change the **working directory** to the project's directory. This means that all of the data you save from RStudio will be saved there by default. It also means that you can open files saved in that directory without needing to worry about file paths. Let's create a new project for this session by going to `File > New Project...` and follow the prompts. 
+
+### R Packages
+
+Packages are the way that we can extend the base R software. To install new packages, we use the `install.packages()` function where the package name is written inside the parantheses in double quotes. We'll start with some packages that we'll need to import different kinds of data. For the `foreign` package, for importing data of various types, the installation function would look like this:
+
+```{r}
+install.packages("foreign")
+```
+
+We'll also need packages called `haven` (importing data from SPS, Stata & SAS) and `xlsx` (importing data from Excel). Try writing out the installation script for those:
+
+```{r}
+
+```
+
+After installing packages, you also need to load them using the `library` function, this time without the double quotes. For the `foreign` package, it would look like this: 
+
+```{r}
+library(foreign)
+```
+
+Now try loading the `haven` and `xlsx` packages. 
+
+```{r}
+
+```
+
+
+## Importing data
+
+### Importing from Excel
+
+If your data file is already converted to a .csv file, you can import it with the `read.csv` function. This is what we'll do for the dataset we're going to use today, which is data that comes from Spanish 1010-2010 students at SLU and includes information about level, motivation, language background, etc. It has been anonimized (fake student names) for instructional purposes. Read in this data like this:
+
+```{r}
+students <- read.csv("students.csv", stringsAsFactors = FALSE)
+```
+
+Otherwise, you can use `read.xlsx` from the `xlsx` pacakge: 
+
+```{r}
+CountyHealth <- read.xlsx("CountyHealth.xlsx")
+```
+
+### Importing from SPS, Stata & SAS
+
+We won't be using any other data formats tonight, but for more info on reading in data from SPS, Stata, and SAS, see this resource: https://www.statmethods.net/input/importingdata.html
+
+
+## Data cleaning and organization
+
+The [tidyverse](http://tidyverse.org) is a family of packages for R that share a philosophy on how data analysis should be done. Let's install `tidyverse`, along with `labelled` and `plyr`:
+
+```{r}
+install.packages("tidyverse")
+install.packages("labelled") #re-labelling of data read-in with the `haven` package
+install.packages("plyr") #for recoding/other data cleaning
+```
+
+Loading all of "tidyverse" can take a long time since it is so large, so it is best to only load those packages within it that you will be using. For now, we'll need `magrittr` and `skimr`. We'll also load `labelled` and `plyr`.
+
+```{r}
+#tidyverse packages
+library(magrittr) #using "pipes" %>%
+library(skimr) #viewing data
+
+#other packages
+library(labelled)
+library(plyr)
+```
+
+### Viewing data
+
+There are a couple of functions you can use to get a sense of your data before you start cleaning/analyzing. One that comes with base R is `View`, which shows your data in a spreadsheet-like tab:
+
+```{r}
+View(students)
+```
+
+Another basic function is `summary`, which gives a summary of the variables in the dataset:
+
+```{r}
+summary(students)
+```
+
+Finally, `skim` within the `skimr` package shows you some more complex basic statistics of (continuous) variables in your dataset: 
+
+```{r}
+skim(students)
+```
+
+### Cleaning data
+
+Okay, first thing we want to do is filter out the students' names since we want this to be an anonymous analysis! We can use the `select` function. 
+
+```{r}
+students2 <- students %>%
+  select(-Full.Name, -Last.Name, -First.Name)
+
+View(students2)
+```
+
+So what did we do here? First, we named our new object. Then, we named the data we wanted to use and used a "pipe" which takes an object, looks inside, and performs operations on its contents, then selected EVERYTHING but those three variables. We did this by putting the "-" in front of the variable names. Let's take another look:
+
+```{r}
+View(students2)
+```
+
+So students belong to three different Spanish classes in a lot of different grades. However, we are really only interested in Freshman. To filter everyone else out, let's use the `filter` function...
+
+```{r}
+students3 <- students2 %>%
+  filter(Class.Status == "Freshman")
+
+View(students3)
+```
+
+So what did we do here? We did the same as the previous exercise, but this time we used filter so we can remove observations based on what is INSIDE the variable. In this case we "filtered" to keep everything in `Class.Status` that was equal to freshmen! Okay, let's look again:
+
+```{r}
+View(students3)
+```
+
+Since we are wanting to do a linear model, we should change some of our variables to continuous. A good way to do this is by using `revalue`. First, we have our `Previous.Study` variable that we want to recode so that we only have numbers. 
+
+```{r}
+students3$Previous.study <- revalue(students3$Previous.study, 
+                     c("0 years"="0", "2 years"="2", 
+                      "3 years"="3", "4 years"="4",
+                      "5 years"="5", "6+ years"="6"))
+
+View(students3)
+```
+
+Looking good! Now they are only numbers! Let's make a code for the `Spanish.Speaking.Feelings` variable, too...
+
+```{r}
+students3$Speaking.Spanish.feeling <- revalue(students3$Speaking.Spanish.feeling,
+                    c("Very Nervous"="1", "Nervous"="2",
+                      "Slightly Nervous"="3", "Neutral"="4",
+                      "Slightly Calm"="5", "Calm"="6",
+                      "Very Calm"="7"))
+
+View(students3)
+```
+
+Now, let's label them!
+
+```{r}
+students4 <- students3 %>%
+  mutate(Previous.study = factor(Previous.study, levels=0:6, labels=
+          c("No Previous Study", "1 Year", "2 Years", "3 Years",
+            "4 Years", "5 Years", "6 Or More Years")))
+
+students5 <- students4 %>%
+  mutate(Speaking.Spanish.feeling = factor (Speaking.Spanish.feeling,
+          levels=1:7, labels= c("Very Nervous", "Nervous",
+          "Slightly Nervous", "Neutral", "Slightly Calm",
+          "Calm", "Very Calm")))
+
+View(students5)
+```
+
+Finally, let's give our data a better name!
+
+```{r}
+finstud <- students5
+```
+
+
+## Basic data visualization
+
+Now that our data is semi cleaned up, we can use `ggplot2` to make some basic plots. This package is part of `tidyverse`, so we don't need to install it, just load it. 
+
+```{r}
+library(ggplot2)
+```
+
+We will use this package to makes some plots without worrying too much about the syntax of the commands. For more information on `ggplot2`, see Wickham (2015). The basic `ggplot2` call requires the assignment of a data frame and (at least one) aesthetic variable to an object. The second part calls the specific type of plot we want to make as a `geom`. 
+
+object.name <- ggplot(data, aes(x=variable1, y=variable2)) + geom_type.of.plot()
+
+### Bar plot
+
+In this case, we'll use the `geom_bar()` (that takes just one variable). Note that we call the object `plot1` afterwards to display it.
+
+```{r}
+plot1 <- ggplot(finstud, aes(x=Previous.study)) + geom_bar()
+plot1
+```
+
+### Scatter plot
+
+Now we'll plot two variables on a scatter plot using `geom_point()`. Technically we would want two continuous variables for this and what we've got are integer variables, but it can still give us an idea of the relationship. 
+
+```{r}
+plot2 <- ggplot(finstud, aes(x=Speaking.Spanish.feeling, y=Previous.study)) + geom_point()
+plot2
+```
+
+So is there a relationship between # of previous years of study and general attitudes towards Spanish? We can add a fitted line to see more clearly. But first, we need to change our variables to continuous variables (or else the linear regression line will not work).
+
+```{r}
+finstud$Speaking.Spanish.feeling <- as.numeric(finstud$Speaking.Spanish.feeling)
+finstud$Previous.study <- as.numeric(finstud$Previous.study)
+```
+
+This method uses a linear regression line (with confidence intervals). We add `geom_smooth` and specify the method. 
+
+```{r}
+plot3 <- ggplot(finstud, aes(x=Speaking.Spanish.feeling, y=Previous.study)) + geom_point() + geom_smooth(method="lm")
+plot3
+```
+
+So, no, there is no relationship between our two variables. Let's go back to our original scatter plot and get a litte fancy with the colors. We can add colors that correspond to a third variable within the aesthetic of the `geom()`. Here we're adding a color (with automatic legend) that corresponds to which Spanish class the student is in. Instead of a variable, you could also specify the color of the points using the name of any of the R colors (http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf).
+
+```{r}
+plot4 <- ggplot(finstud, aes(x=Speaking.Spanish.feeling, y=Previous.study)) + geom_point(aes(color=factor(Spanish.Course)))
+plot4
+```
+
+### Graph themes
+
+Apart from customizing color yourself, you can also use a preset graph theme. For this we'll need the package `ggthemes`. 
+
+```{r}
+install.packages("ggthemes")
+library(ggthemes)
+```
+
+Here is a graph theme that is based off fivethirtyeight graphics!
+
+```{r}
+theme_set(theme_fivethirtyeight())
+```
+
+Now, let's go back to our plot to see the new graph theme. You can find more at: https://cran.r-project.org/web/packages/ggthemes/vignettes/ggthemes.html.
+
+```{r}
+plot4 <- ggplot(finstud, aes(x=Speaking.Spanish.feeling, y=Previous.study)) + geom_point(aes(color=factor(Spanish.Course)))
+plot4
+```
+
+Finally, let's save one of our plots (this is why we have them named as objects). We use `ggsave` for this, first specify which object is to be saved and then the file name we would like to give the saved object, including what kind of file. 
+
+```{r}
+ggsave(plot4, file = "plot4.png")
+```
+
+Where did it go? You'll notice it automatically saves into your working directory, which in this case is our R project folder. 
+
+
+## Building linear models 
+
+Last but not least, let's build a linear model to test the relationship between our two variables in the `finstud` dataset. 
+
+### Converting variable to continuous
+
+As mentioned above, we do not have any truly continous variables in this dataset, but we can conceive of them as being continuous (theoretically you could have 2.5 years of previous study of Spanish) and we just need to change what type of variable R thinks they are. If we hadn't done it alreayd, we'd use the `as.numeric` function for this. This is also how we could go the other way in converting variables to categorical (`as.factor`, etc.)
+
+```{r}
+finstud$Speaking.Spanish.feeling <- as.numeric(finstud$Speaking.Spanish.feeling)
+finstud$Previous.study <- as.numeric(finstud$Previous.study)
+```
+
+### Making a linear model 
+
+Of course there are many steps you would take before actually building the model, but for time's sake we'll just show you this step. The basic function for linear models `lm` is included in base R, so you don't need to install any packages to use it. 
+
+```{r}
+summary(lm(Previous.study~Speaking.Spanish.feeling, data=finstud))
+```
+
+If you want to get more sophisticated, the package `lme4` let's you make mixed effects linear regression models. The package `lmerTest` also allows you to perform certain ad hoc tests, for instance providing p-values for `lmer` models. 
+
+
+## Further resources
+
+[R for Data Science](http://r4ds.had.co.nz)
+[RStudio Cheat Sheets](https://www.rstudio.com/resources/cheatsheets/)
+Wickham, H. (2016). ggplot2: elegant graphics for data analysis. Springer.
